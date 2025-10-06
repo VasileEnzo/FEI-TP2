@@ -7,6 +7,7 @@ import Register from "./pages/Register";
 import ProtectedRoute from "./ProtectedRoute";
 import CreatePost from "./pages/CreatePost";
 import PostDetail from "./pages/PostDetail";
+import PrivateRoute from "./PrivateRoute";
 
 
 export default function App() {
@@ -18,7 +19,13 @@ export default function App() {
           <Route index element={<Home />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
-          <Route path="/post/:documentId" element={<PostDetail />} />
+
+          <Route path="/post/:documentId" element={
+    <PrivateRoute>
+      <PostDetail />
+    </PrivateRoute>
+  } />
+
           <Route path="/create" element={<ProtectedRoute><CreatePost /></ProtectedRoute>} />
         </Routes>
       </Router>
