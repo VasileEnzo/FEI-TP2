@@ -1,95 +1,95 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { createPost } from "../api/post"; // <- ojo: plural
+import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../AuthContext";
-import Button from "../components/Button";
-import Input from "../components/Input";
+import { createPost } from "../api/post";
 
 export default function CreatePost() {
   const { user, jwt } = useAuth();
   const [title, setTitle] = useState("");
-  const [content, setContent] = useState(""); // -> description en Strapi
-  const [image, setImage] = useState(null);   // File | null
-  const [previewUrl, setPreviewUrl] = useState(null);
+  const [description, setDescription] = useState("");
+  const [imageFile, setImageFile] = useState(null);
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (!image) { setPreviewUrl(null); return; }
-    const url = URL.createObjectURL(image);
-    setPreviewUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [image]);
+  if (!user) {
+    return (
+      <div className="p-6">
+        Debes iniciar sesión para crear posts.{" "}
+        <Link to="/login" className="underline text-indigo-600">Ir a Login</Link>
+      </div>
+    );
+  }
 
-  if (!user) return <div className="p-6 text-center">Debes iniciar sesión para crear posts.</div>;
-
-  const handleSubmit = async (e) => {
+  const onSubmit = async (e) => {
     e.preventDefault();
     setErr("");
-    if (!title.trim() || !content.trim()) {
-      setErr("Título y contenido son obligatorios");
+
+    if (!title.trim() || !description.trim()) {
+      setErr("Título y descripción son obligatorios");
       return;
     }
+
+    setLoading(true);
     try {
-      setLoading(true);
-      await createPost({
-        title,
-        description: content,
-        imageFile: image || undefined, // crea con imagen si Upload está activo, si no crea sin imagen
-        jwt,
-      });
+      // Si tu modelo requiere categoría, pasá categoryId aquí (un ID válido)
+      await createPost({ title, description, imageFile, jwt, user /*, categoryId: 1, locale: 'es' */ });
       navigate("/");
-    } catch (error) {
-      console.error("Create post error:", error);
-      setErr(error?.message || "Error al crear el post");
+    } catch (e) {
+      setErr(e?.message || "No se pudo crear el post");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(rgba(0,0,0,0.05)_1px,transparent_1px)] [background-size:20px_20px] relative">
-      <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 via-fuchsia-500/10 to-cyan-500/10" />
-      <main className="relative mx-auto max-w-xl px-6 py-10">
-        <h1 className="text-3xl font-bold mb-6">Crear nuevo post</h1>
+    <main className="mx-auto max-w-xl p-6 space-y-5">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Crear post</h1>
+        <Link to="/" className="text-sm text-indigo-600 underline">← Volver</Link>
+      </div>
 
-        {err && <p className="mb-4 rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-600">{String(err).slice(0,400)}</p>}
+      {err && <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">{err}</div>}
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <Input
-            label="Título"
+      <form onSubmit={onSubmit} className="space-y-4">
+        <label className="block">
+          <span className="block text-sm font-medium mb-1">Título</span>
+          <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Título del post"
+            className="w-full rounded-lg border px-3 py-2"
+            placeholder="Mi primer post"
           />
+        </label>
 
-          <label className="block space-y-1.5">
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Descripción</span>
-            <textarea
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="Escribe aquí tu post..."
-              rows={5}
-              className="w-full rounded-xl border border-gray-200 bg-white/80 px-3 py-2 text-sm outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 dark:border-white/10 dark:bg-white/10"
-            />
-          </label>
+        <label className="block">
+          <span className="block text-sm font-medium mb-1">Descripción</span>
+          <textarea
+            rows={5}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className="w-full rounded-lg border px-3 py-2"
+            placeholder="Contenido del post…"
+          />
+        </label>
 
-          <label className="block space-y-1.5">
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Imagen (opcional)</span>
-            <input type="file" accept="image/*" onChange={(e)=> setImage(e.target.files?.[0] || null)} />
-            {previewUrl && (
-              <img
-                src={previewUrl}
-                alt="preview"
-                className="mt-2 h-40 w-full rounded-xl object-cover border border-gray-200"
-              />
-            )}
-          </label>
+        <label className="block">
+          <span className="block text-sm font-medium mb-1">Imagen (opcional)</span>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => setImageFile(e.target.files?.[0] || null)}
+          />
+        </label>
 
-          <Button type="submit" disabled={loading}>{loading ? "Creando..." : "Publicar post"}</Button>
-        </form>
-      </main>
-    </div>
+        <button
+          type="submit"
+          disabled={loading}
+          className="rounded-lg bg-indigo-600 px-4 py-2 text-white text-sm font-medium hover:bg-indigo-700 disabled:opacity-60"
+        >
+          {loading ? "Creando…" : "Publicar"}
+        </button>
+      </form>
+    </main>
   );
 }

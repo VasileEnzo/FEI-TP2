@@ -1,78 +1,133 @@
-const API = process.env.REACT_APP_API_URL;
+// src/api/post.js
+import axios from "axios";
 
-export async function getPosts(jwt) {
-  const headers = { Accept: 'application/json' };
-  let qs = 'populate=*&sort[0]=createdAt:desc';
-  if (jwt) {
-    headers.Authorization = `Bearer ${jwt}`;
-    qs += '&publicationState=preview';
-  }
-  const res = await fetch(`${API}/api/posts?${qs}`, { headers });
-  if (!res.ok) throw new Error('Error cargando posts');
-  const json = await res.json();
-  return json.data ?? [];
+const API_URL = process.env.REACT_APP_API_URL || "http://localhost:1337";
+
+// Normaliza un post (v5 = plano, v4 = en attributes)
+function normalize(raw) {
+  if (!raw) return null;
+  const a = raw.attributes ? raw.attributes : raw;
+  return {
+    // ids
+    id: raw.id,
+    documentId: raw.documentId ?? a.documentId ?? null,
+    // campos propios
+    title: a.title ?? "",
+    description: a.description ?? "",
+    post_id: a.post_id ?? null,
+    evidences: a.evidences ?? null, // media/relaciones (mantengo la forma original con .data)
+  };
 }
 
-export async function createPost({ title, description, imageFile, jwt }) {
-  if (!jwt) throw new Error("Token JWT no encontrado");
-  const fechaActual = new Date().toISOString();
+// ===== LISTA =====
+export async function getPosts(jwt) {
+  const params = new URLSearchParams({
+    populate: "*",
+    "sort[0]": "createdAt:desc",
+    locale: "all",
+  });
+  if (jwt) params.set("publicationState", "preview");
 
+  const res = await axios.get(`${API_URL}/api/posts?${params.toString()}`, {
+    headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
+  });
+
+  const rows = res.data?.data ?? [];
+  return rows.map(normalize);
+}
+
+// ===== DETALLE por id interno (Opción A) =====
+export async function getPost(id, jwt) {
+  const params = new URLSearchParams({ populate: "*", locale: "all" });
+  if (jwt) params.set("publicationState", "preview");
+
+  const res = await axios.get(`${API_URL}/api/posts/${id}?${params.toString()}`, {
+    headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
+  });
+
+  const raw = res.data?.data ?? null;
+  return normalize(raw);
+}
+
+
+// createPost en Strapi v5: sube imagen primero, luego crea el post referenciando el media
+export async function createPost({ title, description, imageFile, jwt, user, categoryId, locale }) {
+  if (!jwt) throw new Error("Token JWT no encontrado");
+  const API_URL = process.env.REACT_APP_API_URL || "http://localhost:1337";
+
+  // ===== 1) Upload (si hay imagen) =====
+  let mediaId = null;
   if (imageFile) {
     const fd = new FormData();
-    fd.append("data", JSON.stringify({ title, description, fecha_creacion: fechaActual }));
-    fd.append("files.evidences", imageFile);
+    fd.append("files", imageFile);
 
-    const res = await fetch(`${API}/api/posts`, {
+    const upRes = await fetch(`${API_URL}/api/upload`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${jwt}` },
+      headers: { Authorization: `Bearer ${jwt}` }, // NO seteamos Content-Type
       body: fd,
     });
-    const text = await res.text();
-    if (!res.ok) throw new Error(text);
-    return JSON.parse(text).data;
+
+    const upText = await upRes.text();
+    if (!upRes.ok) {
+      let msg = upText;
+      try { msg = JSON.parse(upText)?.error?.message || upText; } catch {}
+      console.error("UPLOAD ERROR ->", msg);
+      throw new Error(`Upload falló: ${msg}`);
+    }
+    const uploaded = JSON.parse(upText); // v5 devuelve array
+    mediaId = uploaded?.[0]?.id ?? null;
   }
 
-  const body = { data: { title, description, fecha_creacion: fechaActual } };
+  // ===== 2) Crear el Post =====
+  const data = {
+    title,
+    description,
+    fecha_creacion: new Date().toISOString(),
+  };
 
-  const res = await fetch(`${API}/api/posts`, {
+  // Si tu modelo tiene i18n y necesitás setear explicitamente:
+  if (locale) data.locale = locale; // ej: "es"
+
+  // Si tu modelo tiene relación con usuario y la querés setear:
+  if (user?.id) data.users_permissions_user = user.id;
+
+  // Si tu modelo exige categoría (ajustá si tu campo es required)
+  if (categoryId) data.category = categoryId;
+
+  // Campo media Multiple: NOMBRE EXACTO = "evidences"
+  if (mediaId) data.evidences = [mediaId];
+
+  // DEBUG: mirá qué estamos mandando
+  console.log("POST /api/posts data ->", data);
+
+  const res = await fetch(`${API_URL}/api/posts`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${jwt}`,
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ data }),
   });
 
   const text = await res.text();
-  if (!res.ok) throw new Error(text);
+  if (!res.ok) {
+    let msg = text;
+    try { msg = JSON.parse(text)?.error?.message || text; } catch {}
+    console.error("CREATE ERROR ->", msg);
+    throw new Error(msg);
+  }
+
   return JSON.parse(text).data;
 }
 
-export async function getPostByPostId(postIdValue, jwt) {
-  const headers = { Accept: "application/json" };
-  const params = new URLSearchParams({
-    populate: "*",
-    locale: "all",
-    "filters[post_id][$eq]": String(postIdValue),
-    "pagination[pageSize]": "1",
+
+export async function getPostByDocumentId(documentId, jwt) {
+  const params = new URLSearchParams({ populate: "*", locale: "all" });
+  if (jwt) params.set("publicationState", "preview");
+
+  const res = await axios.get(`${API_URL}/api/posts/${documentId}?${params.toString()}`, {
+    headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
   });
 
-  if (jwt) {
-    headers.Authorization = `Bearer ${jwt}`;
-    params.set("publicationState", "preview");
-  }
-
-  const url = `${API}/api/posts?${params.toString()}`;
-  const res = await fetch(url, { headers });
-  const text = await res.text();
-
-  if (!res.ok) {
-    console.error("GET /api/posts?filters[post_id] ERROR", res.status, text);
-    throw new Error("Error al cargar el post");
-  }
-
-  const json = JSON.parse(text);
-  const item = (json.data || [])[0];
-  if (!item) throw new Error("Post no encontrado");
-  return item;
+  return normalize(res.data?.data ?? null);
 }

@@ -18,7 +18,7 @@ export default function App() {
           <Route index element={<Home />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
-          <Route path="/post/:postId" element={<PostDetail />} />
+          <Route path="/post/:documentId" element={<PostDetail />} />
           <Route path="/create" element={<ProtectedRoute><CreatePost /></ProtectedRoute>} />
         </Routes>
       </Router>
