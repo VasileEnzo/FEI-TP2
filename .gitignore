@@ -1,0 +1,22 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs
+build/
+.cache/
+dist/
+
+# Strapi specific
+backend/.tmp/
+backend/public/uploads/
+
+# Environment
+.env
+.env.local
+.env.production
+
+# VSCode
+.vscode/
