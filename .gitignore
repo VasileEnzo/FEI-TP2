@@ -20,3 +20,22 @@ backend/public/uploads/
 
 # VSCode
 .vscode/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-*.log
+
+# Builds / cache
+build/
+dist/
+.cache/
+
+# Strapi specifics
+backend/.tmp/
+backend/public/uploads/
+
+# Env / IDE
+.env
+.env.*
+.vscode/
