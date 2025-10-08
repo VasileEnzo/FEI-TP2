@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useAuth } from "../AuthContext";
 import { getPostByDocumentId } from "../api/post";
+import Comments from "../components/Comments";
 
 const API = (process.env.REACT_APP_API_URL || "http://localhost:1337").replace(/\/+$/, "");
 
@@ -12,8 +13,8 @@ function getFirstImageUrl(evidences) {
 }
 
 export default function PostDetail() {
-  const { documentId } = useParams(); // ← ahora viene la cadena larga
-  const { jwt } = useAuth();
+  const { documentId } = useParams();
+  const { jwt, user } = useAuth();
 
   const [post, setPost] = useState(null);
   const [err, setErr] = useState("");
@@ -48,6 +49,15 @@ export default function PostDetail() {
       <h1 className="text-3xl font-bold">{post.title || "(Sin título)"}</h1>
       {post.description && <p className="text-gray-700 whitespace-pre-line">{post.description}</p>}
       {imgUrl && <img src={imgUrl} alt={post.title || ""} className="w-full rounded-xl object-cover max-h-[480px]" />}
+
+      <section className="mt-6">
+        <Comments
+          postId={post.id}
+          documentId={post.documentId}
+          jwt={jwt}
+          currentUserId={user?.id ?? null}
+        />
+      </section>
     </main>
   );
 }

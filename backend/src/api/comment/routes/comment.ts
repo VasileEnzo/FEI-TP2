@@ -1,7 +1,8 @@
-/**
- * comment router
- */
-
-import { factories } from '@strapi/strapi';
-
-export default factories.createCoreRouter('api::comment.comment');
+export default {
+  routes: [
+    { method: 'GET', path: '/comments', handler: 'comment.find' },
+    { method: 'GET', path: '/comments/:id', handler: 'comment.findOne' },
+    { method: 'POST', path: '/comments', handler: 'comment.create' },
+    { method: 'DELETE', path: '/comments/:id', handler: 'comment.delete' }
+  ]
+}
